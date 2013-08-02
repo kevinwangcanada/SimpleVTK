@@ -18,6 +18,7 @@ include(${Slicer_USE_FILE})
 add_subdirectory(ImageResample)
 add_subdirectory(ImageCast)
 add_subdirectory(ImageMathematics)
+add_subdirectory(ImageToModel)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_CPACK})
