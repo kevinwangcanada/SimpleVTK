@@ -16,7 +16,7 @@ class ImageCast:
     This is an example of scripted loadable module bundled in an extension.
     """
     parent.acknowledgementText = """
-    This file was originally developed by Kevin Wang, PMCC. and was funded by Sparkit and OCAIRO.
+    This file was originally developed by Kevin Wang, Princess Margaret Cancer Centre. and was funded by Sparkit and OCAIRO.
 """ # replace with organization, grant and thanks.
     self.parent = parent
 
@@ -135,6 +135,7 @@ class ImageCastWidget:
                                       lambda t=outputScalarType: self.onOutputScalarType(t))
       self.outputScalarTypeBox.layout().addWidget(self.outputScalarTypeButtons[outputScalarType])
     parametersFormLayout.addRow(self.outputScalarTypeBox)
+
     #
     # Apply Button
     #
@@ -159,8 +160,7 @@ class ImageCastWidget:
 
   def onoutputScalarType(self,pickedOutputScalarType):
     """Pick which Output Scalar type to Cast"""
-    for outputScalarType in self.outputScalarTypes:
-      self.outputScalarType = outputScalarType
+    self.outputScalarType = pickedOutputScalarType
 
   def onApplyButton(self):
     logic = ImageCastLogic()
@@ -281,7 +281,7 @@ class ImageCastLogic:
     castor.Update()
     
     outputVolumeNode.CopyOrientation(inputVolumeNode)
-    outputtVolumeNode.SetAndObserveImageData(Castor.GetOutput())
+    outputVolumeNode.SetAndObserveImageData(Castor.GetOutput())
     
     return True
 
