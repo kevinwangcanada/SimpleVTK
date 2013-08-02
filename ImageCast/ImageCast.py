@@ -3,20 +3,20 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 
 #
-# ImageResample
+# ImageCast
 #
 
-class ImageResample:
+class ImageCast:
   def __init__(self, parent):
-    parent.title = "ImageResample" # TODO make this more human readable by adding spaces
+    parent.title = "ImageCast" # TODO make this more human readable by adding spaces
     parent.categories = ["SimpleVTK"]
     parent.dependencies = []
-    parent.contributors = ["Kevin Wang (Princess Margaret Cancer Centre))"] # replace with "Firstname Lastname (Org)"
+    parent.contributors = ["Kevin Wang (Princess Margaret Cancer Centre)"] # replace with "Firstname Lastname (Org)"
     parent.helpText = """
-    This is an image resample module in SimpleVTK extension.
+    This is an example of scripted loadable module bundled in an extension.
     """
     parent.acknowledgementText = """
-    This file was originally developed by Kevin Wang, Princess Margaret Cancer Centre. and was funded by Sparkit and OCAIRO.
+    This file was originally developed by Kevin Wang, PMCC. and was funded by Sparkit and OCAIRO.
 """ # replace with organization, grant and thanks.
     self.parent = parent
 
@@ -27,17 +27,17 @@ class ImageResample:
       slicer.selfTests
     except AttributeError:
       slicer.selfTests = {}
-    slicer.selfTests['ImageResample'] = self.runTest
+    slicer.selfTests['ImageCast'] = self.runTest
 
   def runTest(self):
-    tester = ImageResampleTest()
+    tester = ImageCastTest()
     tester.runTest()
 
 #
-# qImageResampleWidget
+# qImageCastWidget
 #
 
-class ImageResampleWidget:
+class ImageCastWidget:
   def __init__(self, parent = None):
     if not parent:
       self.parent = slicer.qMRMLWidget()
@@ -66,7 +66,7 @@ class ImageResampleWidget:
     #  your module to users)
     self.reloadButton = qt.QPushButton("Reload")
     self.reloadButton.toolTip = "Reload this module."
-    self.reloadButton.name = "ImageResample Reload"
+    self.reloadButton.name = "ImageCast Reload"
     reloadFormLayout.addWidget(self.reloadButton)
     self.reloadButton.connect('clicked()', self.onReload)
 
@@ -89,23 +89,6 @@ class ImageResampleWidget:
     parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
 
     #
-    # reference volume selector
-    #
-    self.referenceSelector = slicer.qMRMLNodeComboBox()
-    self.referenceSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.referenceSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
-    self.referenceSelector.selectNodeUponCreation = True
-    self.referenceSelector.addEnabled = False
-    self.referenceSelector.removeEnabled = False
-    self.referenceSelector.noneEnabled = False
-    self.referenceSelector.showHidden = False
-    self.referenceSelector.showChildNodeTypes = False
-    self.referenceSelector.setMRMLScene( slicer.mrmlScene )
-    self.referenceSelector.setToolTip( "Pick the reference to the algorithm." )
-    
-    parametersFormLayout.addRow("Reference Volume: ", self.referenceSelector)
-
-    #
     # input volume selector
     #
     self.inputSelector = slicer.qMRMLNodeComboBox()
@@ -119,23 +102,7 @@ class ImageResampleWidget:
     self.inputSelector.showChildNodeTypes = False
     self.inputSelector.setMRMLScene( slicer.mrmlScene )
     self.inputSelector.setToolTip( "Pick the input to the algorithm." )
-    
     parametersFormLayout.addRow("Input Volume: ", self.inputSelector)
-
-    #
-    # resample transform selector
-    #
-    self.transformSelector = slicer.qMRMLNodeComboBox()
-    self.transformSelector.nodeTypes = ( ("vtkMRMLTransformNode"), "" )
-    self.transformSelector.selectNodeUponCreation = True
-    self.transformSelector.addEnabled = False
-    self.transformSelector.removeEnabled = False
-    self.transformSelector.noneEnabled = False
-    self.transformSelector.showHidden = False
-    self.transformSelector.showChildNodeTypes = False
-    self.transformSelector.setMRMLScene( slicer.mrmlScene )
-    self.transformSelector.setToolTip( "Pick the resample transform to the algorithm." )
-    parametersFormLayout.addRow("Resample Transform: ", self.transformSelector)
 
     #
     # output volume selector
@@ -154,6 +121,21 @@ class ImageResampleWidget:
     parametersFormLayout.addRow("Output Volume: ", self.outputSelector)
 
     #
+    # outputScalar type selection
+    #
+    self.outputScalarTypeBox = qt.QGroupBox("Output Scalar Type")
+    self.outputScalarTypeBox.setLayout(qt.QHBoxLayout())
+    self.outputScalarTypeButtons = {}
+    self.outputScalarTypes = ("Char", "UnsignedChar", "Short", "UnsignedShort", "Int", "UnsignedInt", "Float", "Double")
+    for outputScalarType in self.outputScalarTypes:
+      self.outputScalarTypeButtons[outputScalarType] = qt.QRadioButton()
+      self.outputScalarTypeButtons[outputScalarType].text = outputScalarType
+      self.outputScalarTypeButtons[outputScalarType].setToolTip("Pick the type of outputScalar")
+      self.outputScalarTypeButtons[outputScalarType].connect("clicked()",
+                                      lambda t=outputScalarType: self.onOutputScalarType(t))
+      self.outputScalarTypeBox.layout().addWidget(self.outputScalarTypeButtons[outputScalarType])
+    parametersFormLayout.addRow(self.outputScalarTypeBox)
+    #
     # Apply Button
     #
     self.applyButton = qt.QPushButton("Apply")
@@ -162,11 +144,9 @@ class ImageResampleWidget:
     parametersFormLayout.addRow(self.applyButton)
 
     # connections
-    self.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.referenceSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    self.transformSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.applyButton.connect('clicked(bool)', self.onApplyButton)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -175,14 +155,19 @@ class ImageResampleWidget:
     pass
 
   def onSelect(self):
-    self.applyButton.enabled = self.inputSelector.currentNode() and self.outputSelector.currentNode() and self.referenceSelector.currentNode() and self.transformSelector.currentNode()
+    self.applyButton.enabled = self.inputSelector.currentNode() and self.outputSelector.currentNode()
+
+  def onoutputScalarType(self,pickedOutputScalarType):
+    """Pick which Output Scalar type to Cast"""
+    for outputScalarType in self.outputScalarTypes:
+      self.outputScalarType = outputScalarType
 
   def onApplyButton(self):
-    logic = ImageResampleLogic()
+    logic = ImageCastLogic()
     print("Run the algorithm")
-    logic.run(self.referenceSelector.currentNode(), self.inputSelector.currentNode(), self.transformSelector.currentNode(), self.outputSelector.currentNode())
+    logic.run(self.inputSelector.currentNode(), self.outputSelector.currentNode(), self.outputScalarType)
 
-  def onReload(self,moduleName="ImageResample"):
+  def onReload(self,moduleName="ImageCast"):
     """Generic reload method for any scripted module.
     ModuleWizard will subsitute correct default moduleName.
     """
@@ -227,7 +212,7 @@ class ImageResampleWidget:
     globals()[widgetName.lower()].setup()
     setattr(globals()['slicer'].modules, widgetName, globals()[widgetName.lower()])
 
-  def onReloadAndTest(self,moduleName="ImageResample"):
+  def onReloadAndTest(self,moduleName="ImageCast"):
     try:
       self.onReload()
       evalString = 'globals()["%s"].%sTest()' % (moduleName, moduleName)
@@ -241,10 +226,10 @@ class ImageResampleWidget:
 
 
 #
-# ImageResampleLogic
+# ImageCastLogic
 #
 
-class ImageResampleLogic:
+class ImageCastLogic:
   """This class should implement all the actual 
   computation done by your module.  The interface 
   should be such that other python code can import
@@ -267,36 +252,104 @@ class ImageResampleLogic:
       return False
     return True
 
-  def run(self,referenceNode, inputNode, transformNode, outputNode):
+  def run(self,inputVolumeNode,outputVolumeNode,outputScalarType):
     """
     Run the actual algorithm
     """
-    dimensions = [1,1,1]
-    referenceNode.GetImageData().GetDimensions(dimensions)
+    castor = vtk.vtkImageShiftScale()
+    castor.SetInput(inputVolumeNode.GetImageData())
+    castor.SetShift(0.0)
+    castor.SetScale(1.0)
+    if outputScalarType == "Char":
+      castor.SetOutputScalarTypeToChar()
+    elif outputScalarType == "UnsignedChar":
+      castor.SetOutputScalarTypeToUnsignedChar()
+    elif outputScalarType == "Short":
+      castor.SetOutputScalarTypeToShort()
+    elif outputScalarType == "UnsignedShort":
+      castor.SetOutputScalarTypeToUnsignedShort()
+    elif outputScalarType == "Int":
+      castor.SetOutputScalarTypeToInt()
+    elif outputScalarType == "UnsignedInt":
+      castor.SetOutputScalarTypeToUnsignedInt()
+    elif outputScalarType == "Float":
+      castor.SetOutputScalarTypeToFloat()
+    elif outputScalarType == "Double":
+      castor.SetOutputScalarTypeToDouble()
+    else:
+      pass
+    castor.Update()
     
-    inputIJK2RASMatrix = vtk.vtkMatrix4x4()
-    inputNode.GetIJKToRASMatrix(inputIJK2RASMatrix)
-    referenceRAS2IJKMatrix = vtk.vtkMatrix4x4()
-    referenceNode.GetRASToIJKMatrix(referenceRAS2IJKMatrix)
-    inputRAS2RASMatrix = transformNode.GetMatrixTransformToParent()
+    outputVolumeNode.CopyOrientation(inputVolumeNode)
+    outputtVolumeNode.SetAndObserveImageData(Castor.GetOutput())
     
-    resampleTransform = vtk.vtkTransform()
-    resampleTransform.Identity()
-    resampleTransform.PostMultiply()
-    resampleTransform.SetMatrix(inputIJK2RASMatrix)
-    resampleTransform.Concatenate(inputRAS2RASMatrix) 
-    resampleTransform.Concatenate(referenceRAS2IJKMatrix)
-    resampleTransform.Inverse()
-   
-    resampler = vtk.vtkImageReslice()
-    resampler.SetInput(inputNode.GetImageData())
-    resampler.SetOutputOrigin(0,0,0)
-    resampler.SetOutputSpacing(1,1,1)
-    resampler.SetOutputExtent(0,dimensions[0],0,dimensions[1],0,dimensions[2])
-    resampler.SetResliceTransform(resampleTransform)
-    resampler.Update()
-    
-    outputNode.CopyOrientation(referenceNode)
-    outputNode.SetAndObserveImageData(resampler.GetOutput())
-     
     return True
+
+class ImageCastTest(unittest.TestCase):
+  """
+  This is the test case for your scripted module.
+  """
+
+  def delayDisplay(self,message,msec=1000):
+    """This utility method displays a small dialog and waits.
+    This does two things: 1) it lets the event loop catch up
+    to the state of the test so that rendering and widget updates
+    have all taken place before the test continues and 2) it
+    shows the user/developer/tester the state of the test
+    so that we'll know when it breaks.
+    """
+    print(message)
+    self.info = qt.QDialog()
+    self.infoLayout = qt.QVBoxLayout()
+    self.info.setLayout(self.infoLayout)
+    self.label = qt.QLabel(message,self.info)
+    self.infoLayout.addWidget(self.label)
+    qt.QTimer.singleShot(msec, self.info.close)
+    self.info.exec_()
+
+  def setUp(self):
+    """ Do whatever is needed to reset the state - typically a scene clear will be enough.
+    """
+    slicer.mrmlScene.Clear(0)
+
+  def runTest(self):
+    """Run as few or as many tests as needed here.
+    """
+    self.setUp()
+    self.test_ImageCast1()
+
+  def test_ImageCast1(self):
+    """ Ideally you should have several levels of tests.  At the lowest level
+    tests sould exercise the functionality of the logic with different inputs
+    (both valid and invalid).  At higher levels your tests should emulate the
+    way the user would interact with your code and confirm that it still works
+    the way you intended.
+    One of the most important features of the tests is that it should alert other
+    developers when their changes will have an impact on the behavior of your
+    module.  For example, if a developer removes a feature that you depend on,
+    your test should break so they know that the feature is needed.
+    """
+
+    self.delayDisplay("Starting the test")
+    #
+    # first, get some data
+    #
+    import urllib
+    downloads = (
+        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
+        )
+
+    for url,name,loader in downloads:
+      filePath = slicer.app.temporaryPath + '/' + name
+      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+        print('Requesting download %s from %s...\n' % (name, url))
+        urllib.urlretrieve(url, filePath)
+      if loader:
+        print('Loading %s...\n' % (name,))
+        loader(filePath)
+    self.delayDisplay('Finished with download and loading\n')
+
+    volumeNode = slicer.util.getNode(pattern="FA")
+    logic = ImageCastLogic()
+    self.assertTrue( logic.hasImageData(volumeNode) )
+    self.delayDisplay('Test passed!')
